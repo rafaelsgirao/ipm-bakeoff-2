@@ -6,8 +6,8 @@
 // p5.js reference: https://p5js.org/reference/
 
 // Database (CHANGE THESE!)
-const GROUP_NUMBER = 42;      // Add your group number here as an integer (e.g., 2, 3)
-const RECORD_TO_FIREBASE = true;  // Set to 'true' to record user results to Firebase
+const GROUP_NUMBER = 2;      // Add your group number here as an integer (e.g., 2, 3)
+const RECORD_TO_FIREBASE = false;  // Set to 'true' to record user results to Firebase
 
 // Pixel density and setup variables (DO NOT CHANGE!)
 let PPI, PPCM;
@@ -29,16 +29,32 @@ let trials;                         // contains the order of targets that activa
 let current_trial = 0;      // the current trial number (indexes into trials array above)
 let attempt = 0;      // users complete each test twice to account for practice (attemps 0 and 1)
 
+const features = {
+  sort_all_targets: true,
+  sort_alphabetically_then_categorically: false,
+  letter_order: false,
+  sfx: false,
+};
+
 // Target list
 let targets = [];
 
+let legs_array;
 // Ensures important data is loaded before the program starts
 function preload() {
+  leg_file = loadTable('legendas.csv', 'csv', 'header');
+
   legendas = loadTable('legendas.csv', 'csv', 'header');
 }
 
+
 // Runs once at the start
 function setup() {
+  legs_array = leg_file.getArray();
+  //Sort all targets alphabetically
+  if (features.sort_all_targets) {
+    legs_array.sort(function (a, b) { return a[0].localeCompare(b[0]); });
+  }
   createCanvas(700, 500);    // window size in px before we go into fullScreen()
   frameRate(60);             // frame rate (DO NOT CHANGE!)
 
@@ -182,6 +198,7 @@ function createTargets(target_size, horizontal_gap, vertical_gap) {
   v_margin = vertical_gap / (GRID_ROWS - 1);
 
   // Set targets in a 8 x 10 grid
+  let found_letters = [];
   for (var r = 0; r < GRID_ROWS; r++) {
     for (var c = 0; c < GRID_COLUMNS; c++) {
       let target_x = 40 + (h_margin + target_size) * c + target_size / 2;        // give it some margin from the left border
@@ -193,10 +210,27 @@ function createTargets(target_size, horizontal_gap, vertical_gap) {
       let target_id = legendas.getNum(legendas_index, 1);
       let target_category = legendas.getString(legendas_index, 2);
 
-      let target = new Target(target_x, target_y + 40, target_size, target_label, target_id, target_category);
+      let first_letter = target_label[0];
+      let found = false;
+      for (letter of found_letters) {
+        if (letter == first_letter) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        found_letters.push(first_letter);
+      }
+      else {
+        first_letter = '-1';
+      }
+
+      let target = new Target(target_x, target_y + 40, target_size, target_label, target_id, target_category, first_letter);
       targets.push(target);
     }
   }
+  // Sort targets
+  //targets.sort(function(a, b) {return a.name - b.name});
 }
 
 // Is invoked when the canvas is resized (e.g., when we go fullscreen)
@@ -214,7 +248,9 @@ function windowResized() {
     let screen_height = display.height * 2.54;            // screen height
     let target_size = 1.8;                                // sets the target size (will be converted to cm when passed to createTargets)
     let horizontal_gap = screen_width - target_size * GRID_COLUMNS;// empty space in cm across the x-axis (based on 10 targets per row)
+    console.log(horizontal_gap);
     let vertical_gap = screen_height - target_size * GRID_ROWS;  // empty space in cm across the y-axis (based on 8 targets per column)
+    console.log(vertical_gap);
 
     // Creates and positions the UI targets according to the white space defined above (in cm!)
     // 80 represent some margins around the display (e.g., for text)
